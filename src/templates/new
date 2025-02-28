@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <h1>{{ title }}</h1>
+    {{request.user}} -
+    {{request.method}} -
+    {{request.user.is_authenticated}}
+</body>
+
+</html>
