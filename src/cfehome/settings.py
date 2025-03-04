@@ -51,6 +51,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -144,20 +145,25 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = 'static/'
-STATICFILES_BASE_DIRS = BASE_DIR / "staticfiles"
-STATICFILES_BASE_DIRS.mkdir(parents=True, exist_ok=True)
-STATICFILES_VENDOR_DIR = BASE_DIR / "staticfiles/vendors"
+STATICFILES_BASE_DIR = BASE_DIR / "staticfiles"
+STATICFILES_BASE_DIR.mkdir(parents=True, exist_ok=True)
+STATICFILES_VENDOR_DIR = STATICFILES_BASE_DIR / "vendors"
 
 #source(s) for python manage.py collectstatic
 STATICFILES_DIRS = [
-    STATICFILES_BASE_DIRS
+    STATICFILES_BASE_DIR
 ]
 
 # Output for python manage.py collectstatic
 # local cdn (content delivery network)
 
-STATIC_ROOT = BASE_DIR/ "local-cdn"
+STATIC_ROOT = BASE_DIR / "local-cdn"
 
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
     
 
 
