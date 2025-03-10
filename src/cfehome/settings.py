@@ -16,6 +16,31 @@ from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+#Email config
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config("EMAIL_HOST", cast=str, default=None)
+EMAIL_PORT = config("EMAIL_PORT", cast=int, default='587') # Recommended
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", cast=str, default=None)
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", cast=str, default=None)
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool, default=True)  # Use EMAIL_PORT 587 for TLS
+#EMAIL_USE_SSL = config("EMAIL_USE_TLS", cast=bool, default=False)  # EUse MAIL_PORT 465 for SSL
+
+#500 errors
+ADMIN_USER_NAME = config("ADMIN_USER_NAME", cast=str, default=None)
+ADMIN_USER_EMAIL = config("ADMIN_USER_EMAIL", cast=str, default=None)
+
+ADMINS = []
+MANAGERS = []
+
+if all([ADMIN_USER_NAME, ADMIN_USER_EMAIL]):
+    #500 errors are emailed to these users
+    ADMINS +=[
+        (f'{ADMIN_USER_NAME}', f'{ADMIN_USER_EMAIL}')
+    ]
+    MANAGERS = ADMINS
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
@@ -47,6 +72,14 @@ INSTALLED_APPS = [
     #my apps
     'visits',
     'commando',
+    #third party apps
+    'allauth_ui',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.github',
+    'widget_tweaks',
+    'slippers',
 ]
 
 MIDDLEWARE = [
@@ -58,6 +91,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = 'cfehome.urls'
@@ -106,10 +140,6 @@ if DATABASE_URL is not None:
 
 
 
-
-
-    
-
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
@@ -128,6 +158,33 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+
+#Django Allauth Config
+LOGIN_REDIRECT_URL = '/'
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "EnergyCenter"
+ACCOUNT_EMAIL_REQUIRED=True
+
+AUTHENTICATION_BACKENDS = [
+    # ...
+    # Needed to login by username in Django admin, regardless of `allauth`
+    'django.contrib.auth.backends.ModelBackend',
+
+    # `allauth` specific authentication methods, such as login by email
+    'allauth.account.auth_backends.AuthenticationBackend',
+    #...
+]
+
+
+
+
+# Provider specific settings
+SOCIALACCOUNT_PROVIDERS = {
+    'github': {
+        'VERIFIED_EMAIL': True,
+    }
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
@@ -159,6 +216,7 @@ STATICFILES_DIRS = [
 
 STATIC_ROOT = BASE_DIR / "local-cdn"
 
+#If you need to upload files then use django-storages instead of whitenoise
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
