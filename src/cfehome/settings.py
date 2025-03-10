@@ -70,8 +70,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     #my apps
-    'visits',
     'commando',
+    'profiles',
+    'subscriptions',
+    'visits',
     #third party apps
     'allauth_ui',
     'allauth',
@@ -81,6 +83,8 @@ INSTALLED_APPS = [
     'widget_tweaks',
     'slippers',
 ]
+
+SILENCED_SYSTEM_CHECKS =  ["slippers.E001"]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
