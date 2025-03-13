@@ -1,8 +1,10 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
-from .calculations import EnergyCalculations
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
+from .calculations import EnergyCalculations
+from equipment.models import LightingSpecs, LightingControlSpecs
 
 # Create your models here.
 
@@ -30,29 +32,29 @@ class Project(models.Model):
 # Energy calculation results model
 class EnergyResult(models.Model):
     project = models.OneToOneField(Project, on_delete=models.CASCADE, related_name='energy_results')
-    E_IT_input_kWh = models.FloatField(null=True, blank=True, help_text="The annual energy usage of the IT equipment in kWh")
-    E_DC_input_kWh = models.FloatField(null=True, blank=True, help_text="The annual energy usage of the datacenter in kWh")
+    E_IT_input_kWh = models.FloatField(default=0, help_text="The annual energy usage of the IT equipment in kWh")
+    E_DC_input_kWh = models.FloatField(default=0, help_text="The annual energy usage of the datacenter in kWh")
     
     PUE_calc_input = models.FloatField(editable=False, null=True, blank=True, help_text="calculated based on E_DC_input_kWh and E_IT_input_kWh")
     
     E_DC_calc_kWh = models.FloatField(editable=False, null=True, blank=True) #calculated as the sum of E_IT_input_kWh and all the other energy usage values below.
         
-    E_chiller_calc_kWh = models.FloatField(editable=False, null=True, blank=True, help_text="Only calculated if the system includes chillers")
-    E_cooling_tower_calc_kWh = models.FloatField(editable=False, null=True, blank=True, help_text="Only calculated when CTs are present")
-    E_pump_cw_calc_kWh = models.FloatField(editable=False, null=True, blank=True, help_text="Condenser water pumps calculation")
-    E_pump_chw_primary_calc_kWh = models.FloatField(editable=False, null=True, blank=True, help_text="Only calculated if chilled water is present")
-    E_pump_chw_secondary_calc_kWh = models.FloatField(editable=False, null=True, blank=True, help_text="Only calculated if chilled water is present")
-    E_CRAH_calc_kWh = models.FloatField(editable=False, null=True, blank=True)
-    E_CRAC_calc_kWh = models.FloatField(editable=False, null=True, blank=True)
-    E_MAU_calc_kWh = models.FloatField(editable=False, null=True, blank=True, help_text="MAU may or may not include hum and dehum")
-    E_Humidifier_InRoom_kWh = models.FloatField(editable=False, null=True, blank=True)
-    E_Dehum_InRoom_kWh = models.FloatField(editable=False, null=True, blank=True)
-    E_UPS_calc_kWh = models.FloatField(editable=False, null=True, blank=True)
-    E_TX_calc_kWh = models.FloatField(editable=False, null=True, blank=True)
-    E_generator_heating_calc_kWh = models.FloatField(editable=False, null=True, blank=True)
-    E_lighting_calc_kWh = models.FloatField(editable=False, null=True, blank=True)
-    E_cable_losses_calc_kWh = models.FloatField(editable=False, null=True, blank=True)
-    E_un_accounted_calc_kWh = models.FloatField(editable=False, null=True, blank=True)
+    E_chiller_calc_kWh = models.FloatField(editable=False, default=0, help_text="Only calculated if the system includes chillers")
+    E_cooling_tower_calc_kWh = models.FloatField(editable=False, default=0, help_text="Only calculated when CTs are present")
+    E_pump_cw_calc_kWh = models.FloatField(editable=False, default=0, help_text="Condenser water pumps calculation")
+    E_pump_chw_primary_calc_kWh = models.FloatField(editable=False, default=0, help_text="Only calculated if chilled water is present")
+    E_pump_chw_secondary_calc_kWh = models.FloatField(editable=False, default=0, help_text="Only calculated if chilled water is present")
+    E_CRAH_calc_kWh = models.FloatField(editable=False, default=0)
+    E_CRAC_calc_kWh = models.FloatField(editable=False, default=0)
+    E_MAU_calc_kWh = models.FloatField(editable=False, default=0, help_text="MAU may or may not include hum and dehum")
+    E_Humidifier_InRoom_kWh = models.FloatField(editable=False, default=0)
+    E_Dehum_InRoom_kWh = models.FloatField(editable=False, default=0)
+    E_UPS_calc_kWh = models.FloatField(editable=False, default=0)
+    E_TX_calc_kWh = models.FloatField(editable=False, default=0)
+    E_generator_heating_calc_kWh = models.FloatField(editable=False, default=0)
+    E_lighting_calc_kWh = models.FloatField(editable=False, default=0)
+    E_cable_losses_calc_kWh = models.FloatField(editable=False, default=0)
+    E_un_accounted_calc_kWh = models.FloatField(editable=False, default=0)
     
     PUE_calc = models.FloatField(editable=False, null=True, blank=True, help_text="Calculated based on E_IT_input_kWh and the calculated E_DC value. This is partial PUE if any subcomponent isn´t yet calculated")
     
@@ -60,12 +62,10 @@ class EnergyResult(models.Model):
         return f"{self.project.project_name}"
 
     def save(self, *args, **kwargs):
-        """Override save to trigger PUE calculation when relevant fields change"""
+        """Override save to trigger all energy calculations when relevant fields change"""
         
-        # Trigger "PUE_input" - input based PUE - calculation
+        # Trigger all energy calculations when relevant fields change
         if hasattr(self, 'project' ): #and
-            #self.E_IT_input_kWh is not None and 
-            #self.E_DC_input_kWh is not None):
             calculator = EnergyCalculations(self.project)
             calculator.calculate_all()
             print(f"PUE_input calculated", self.PUE_calc_input)
@@ -76,6 +76,13 @@ class EnergyResult(models.Model):
         """Return PUE value rounded to 3 decimal places"""
         if self.PUE_calc_input is not None:
             return round(self.PUE_calc_input, 3)
+        return None
+    
+    @property
+    def PUE_calc_rounded(self):
+        """Return PUE value rounded to 3 decimal places"""
+        if self.PUE_calc is not None:
+            return round(self.PUE_calc, 3)
         return None
         
 
@@ -160,25 +167,29 @@ class Transformer(models.Model):
     TX_total_loss_kW = models.FloatField(validators=[MinValueValidator(0)], editable=False, null=True, blank=True)
 
 class Lighting(models.Model):
-    LIGHTING_TYPE_CHOICES = [
-        ('Fluorescent Tubes', 'Fluorescent Tubes'),
-        ('LED', 'LED'),
-        # Add other types as needed
-    ]
-    
-    LIGHTING_CONTROL_CHOICES = [
-        ('On 24/7', 'On 24/7'),
-        ('Motion Sensors', 'Motion Sensors'),
-        # Add other controls as needed
-    ]
-    
+  
     project = models.OneToOneField(Project, on_delete=models.CASCADE, related_name='lighting')
-    lighting_type = models.CharField(max_length=100, choices=LIGHTING_TYPE_CHOICES)
-    lighting_load_Wm2 = models.FloatField(validators=[MinValueValidator(0)], 
-                                         help_text="Look up table based on type of lighting")
-    lighting_controls = models.CharField(max_length=100, choices=LIGHTING_CONTROL_CHOICES)
-    on_for_hoursyear = models.FloatField(validators=[MinValueValidator(0)], 
-                                        help_text="Calculated depending on lighting controls and occupancy assumptions")
+    lighting_type = models.CharField(max_length=100, 
+                    help_text="Select the type of lighting from the dropdown to determine the lighting load") #dropdown handled in admin.py / in form
+    lighting_load_input_Wm2 = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)], 
+                    help_text="Input the lighting load in W/m2 to override the default value")
+    lighting_load_Wm2 = models.FloatField(editable=False, null=True, blank=True, validators=[MinValueValidator(0)], 
+                    help_text="Look up table based on type of lighting") #lookup handled in calculations.py
+    lighting_controls = models.CharField(max_length=100, 
+                    help_text="Select the type of lighting control to determine hours per year")
+    on_for_hoursyear = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)], 
+                    help_text="Hours per year the lighting is on. If provided, this overrides the default value from lighting controls.")
+   
+    def __str__(self):
+        return f"{self.project.project_name}"
+
+    def save(self, *args, **kwargs):
+        """Override save to trigger energy calculations"""
+        if hasattr(self, 'project' ): 
+            calculator = EnergyCalculations(self.project)
+            calculator.calculate_lighting_energy()
+            
+        super().save(*args, **kwargs)
 
 class Datahall(models.Model):
     AIR_COOLING_TYPE_CHOICES = [

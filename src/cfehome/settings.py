@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'commando',
     'customers',
     'energy_model',
+    'equipment',
     'profiles',
     'subscriptions',
     'visits',
