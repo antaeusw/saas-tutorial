@@ -66,27 +66,21 @@ class LightingForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Dynamically set choices when the form is instantiated
-        self.fields['lighting_type'].choices = [(instance.lighting_type, instance.lighting_type) 
-                                              for instance in LightingSpecs.objects.all()]
+        # Get the choices
+        lighting_type_choices = [(instance.lighting_type, instance.lighting_type) 
+                               for instance in LightingSpecs.objects.all()]
+        lighting_control_choices = [(instance.control_type, instance.control_type) 
+                                  for instance in LightingControlSpecs.objects.all()]
+        
+        # Set both fields to use Select widgets with their respective choices
+        self.fields['lighting_type'].widget = forms.Select(choices=lighting_type_choices)
+        self.fields['lighting_controls'].widget = forms.Select(choices=lighting_control_choices)
         
 @admin.register(Lighting)
 class LightingAdmin(admin.ModelAdmin):
+    form = LightingForm
     list_display = ('project', 'lighting_type', 'lighting_controls', 'on_for_hoursyear')
     search_fields = ('project__project_name',)
-    
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "lighting_type":
-            kwargs["queryset"] = LightingSpecs.objects.all()
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
-    
-    def formfield_for_dbfield(self, db_field, request, **kwargs):
-        formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
-        if db_field.name == 'lighting_type':
-            formfield.choices = [(spec.lighting_type, spec.lighting_type) for spec in LightingSpecs.objects.all()]
-        elif db_field.name == 'lighting_controls':
-            formfield.choices = [(spec.control_type, spec.control_type) for spec in LightingControlSpecs.objects.all()]
-        return formfield
 
 admin.site.register(Datacenter)
 admin.site.register(Project)

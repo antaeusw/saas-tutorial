@@ -169,14 +169,20 @@ class Transformer(models.Model):
 class Lighting(models.Model):
   
     project = models.OneToOneField(Project, on_delete=models.CASCADE, related_name='lighting')
-    lighting_type = models.CharField(max_length=100, 
-                    help_text="Select the type of lighting from the dropdown to determine the lighting load") #dropdown handled in admin.py / in form
+    lighting_type = models.CharField(
+        max_length=100,
+        choices=[], 
+        help_text="Select the type of lighting from the dropdown to determine the lighting load"
+        ) #dropdown handled in admin.py / in form
     lighting_load_input_Wm2 = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)], 
                     help_text="Input the lighting load in W/m2 to override the default value")
     lighting_load_Wm2 = models.FloatField(editable=False, null=True, blank=True, validators=[MinValueValidator(0)], 
                     help_text="Look up table based on type of lighting") #lookup handled in calculations.py
-    lighting_controls = models.CharField(max_length=100, 
-                    help_text="Select the type of lighting control to determine hours per year")
+    lighting_controls = models.CharField(
+        max_length=100, 
+        choices=[], 
+        help_text="Select the type of lighting control to determine hours per year"
+        ) #dropdown handled in admin.py / in form
     on_for_hoursyear = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)], 
                     help_text="Hours per year the lighting is on. If provided, this overrides the default value from lighting controls.")
    
