@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django import forms
 from .models import *
-from equipment.models import LightingSpecs, LightingControlSpecs
 
 class EnergyResultAdmin(admin.ModelAdmin):
     list_display = ('project', 'E_IT_input_kWh', 'E_DC_input_kWh', 'PUE_calc_input_rounded')
@@ -59,34 +58,37 @@ class EnergyResultAdmin(admin.ModelAdmin):
         'PUE_calc_rounded',
     )
 
-class LightingForm(forms.ModelForm):
-    class Meta:
-        model = Lighting
-        fields = '__all__'
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Get the choices
-        lighting_type_choices = [(instance.lighting_type, instance.lighting_type) 
-                               for instance in LightingSpecs.objects.all()]
-        lighting_control_choices = [(instance.control_type, instance.control_type) 
-                                  for instance in LightingControlSpecs.objects.all()]
-        
-        # Set both fields to use Select widgets with their respective choices
-        self.fields['lighting_type'].widget = forms.Select(choices=lighting_type_choices)
-        self.fields['lighting_controls'].widget = forms.Select(choices=lighting_control_choices)
-        
 @admin.register(Lighting)
 class LightingAdmin(admin.ModelAdmin):
-    form = LightingForm
     list_display = ('project', 'lighting_type', 'lighting_controls', 'on_for_hoursyear')
     search_fields = ('project__project_name',)
+    fields = ('project', 'lighting_type', 'lighting_load_input_Wm2', 'lighting_load_Wm2','lighting_controls', 'on_for_hoursyear_input', 'on_for_hoursyear',)
+    readonly_fields = ('lighting_load_Wm2', 'on_for_hoursyear',)
+
+@admin.register(Transformer)
+class TransformerAdmin(admin.ModelAdmin):
+    list_display = ('project', 'transformer_type', 'transformer_unit_capacity_kW', 'E_DC_power_kW', 'TX_total_loss_kW')
+    search_fields = ('project__project_name',)
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('project', 'transformer_type', 'transformer_unit_capacity_kW', 'quantity_installed_number', 'total_installed_capacity_kW')
+        }),
+        ('Load Information', {
+            'fields': ('E_DC_power_kW', 'average_utilization')
+        }),
+        ('Loss Factors', {
+            'fields': ('core_loss_factor_percent_input', 'load_loss_factor_percent_input', 'core_loss_factor_percent', 'load_loss_factor_percent')
+        }),
+        ('Calculated Results', {
+            'fields': ('TX_total_loss_factor_percent', 'TX_total_loss_kW')
+        }),
+    )
+    readonly_fields = ('core_loss_factor_percent', 'load_loss_factor_percent', 'TX_total_loss_factor_percent', 'TX_total_loss_kW', 'E_DC_power_kW', 'total_installed_capacity_kW', 'average_utilization')
 
 admin.site.register(Datacenter)
 admin.site.register(Project)
 admin.site.register(EnergyResult, EnergyResultAdmin)
 admin.site.register(UPS)
-admin.site.register(Transformer) 
 admin.site.register(Datahall)
 admin.site.register(CRAH)
 admin.site.register(CHWPump)

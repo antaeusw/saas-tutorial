@@ -3,6 +3,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from termcolor import colored
+
 from .calculations import EnergyCalculations
 from equipment.models import LightingSpecs, LightingControlSpecs
 
@@ -68,7 +70,6 @@ class EnergyResult(models.Model):
         if hasattr(self, 'project' ): #and
             calculator = EnergyCalculations(self.project)
             calculator.calculate_all()
-            print(f"PUE_input calculated", self.PUE_calc_input)
         super().save(*args, **kwargs)
     
     @property
@@ -146,44 +147,64 @@ class UPS(models.Model):
             pass
 
 class Transformer(models.Model):
-    TRANSFORMER_TYPE_CHOICES = [
-        ('Dry-Type', 'Dry-Type'),
-        ('Oil Filled', 'Oil Filled'),
-        ('Cast Resin', 'Cast Resin'),
-    ]
-    
     project = models.OneToOneField(Project, on_delete=models.CASCADE, related_name='transformer')
-    transformer_type = models.CharField(max_length=100, choices=TRANSFORMER_TYPE_CHOICES)
+    transformer_type = models.ForeignKey(
+        'equipment.TransformerSpecs',
+        on_delete=models.PROTECT,
+        help_text="Select the type of transformer to determine default loss factors"
+    )
     transformer_unit_capacity_kW = models.FloatField(validators=[MinValueValidator(0)])
     quantity_installed_number = models.PositiveIntegerField()
-    total_installed_capacity_kW = models.FloatField(validators=[MinValueValidator(0)], 
+    total_installed_capacity_kW = models.FloatField(editable=False, default=0, validators=[MinValueValidator(0)], 
                                                   help_text="Including redundancy")
-    E_DC_power_kW = models.FloatField(validators=[MinValueValidator(0)])
-    average_utilization = models.FloatField(validators=[MinValueValidator(0), MaxValueValidator(100)])
-    core_loss_factor_percent = models.FloatField(validators=[MinValueValidator(0)])
-    load_loss_factor_percent = models.FloatField(validators=[MinValueValidator(0)])
-    TX_total_loss_factor_percent = models.FloatField(validators=[MinValueValidator(0)], editable=False, null=True, blank=True,
+    E_DC_power_kW = models.FloatField(editable=False, default=0, validators=[MinValueValidator(0)])
+    average_utilization = models.FloatField(editable=False, default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    core_loss_factor_percent_input = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)],
+                                                     help_text="Input core loss factor to override the default value")
+    load_loss_factor_percent_input = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)],
+                                                     help_text="Input load loss factor to override the default value")
+    core_loss_factor_percent = models.FloatField(validators=[MinValueValidator(0)], editable=False, null=True, blank=True,
+                                               help_text="Core loss factor from specs or manual input")
+    load_loss_factor_percent = models.FloatField(validators=[MinValueValidator(0)], editable=False, null=True, blank=True,
+                                               help_text="Load loss factor from specs or manual input")
+    TX_total_loss_factor_percent = models.FloatField(validators=[MinValueValidator(0)], editable=False, default=0, blank=True,
                                                    help_text="= k (Core Loss %) + (Load loss %) x (Actual Load kW / Rated Load kW)")
-    TX_total_loss_kW = models.FloatField(validators=[MinValueValidator(0)], editable=False, null=True, blank=True)
+    TX_total_loss_kW = models.FloatField(validators=[MinValueValidator(0)], editable=False, default=0)
+    
+    def __str__(self):
+        return f"{self.project.project_name}"
+    
+    def save(self, *args, **kwargs):
+        """Override save to trigger energy calculations"""
+                
+        if hasattr(self, 'project'):
+            calculator = EnergyCalculations(self.project)
+            calculator.calculate_transformer_losses()
+
+        # Trigger transformer loss calculations
+        super().save(*args, **kwargs)
+              
 
 class Lighting(models.Model):
   
     project = models.OneToOneField(Project, on_delete=models.CASCADE, related_name='lighting')
-    lighting_type = models.CharField(
-        max_length=100,
-        choices=[], 
-        help_text="Select the type of lighting from the dropdown to determine the lighting load"
-        ) #dropdown handled in admin.py / in form
+    lighting_type = models.ForeignKey(
+        LightingSpecs, 
+        on_delete=models.PROTECT,  # Prevents deletion of lighting specs that are in use
+        help_text="Select the type of lighting to determine the lighting load"
+    )
     lighting_load_input_Wm2 = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)], 
                     help_text="Input the lighting load in W/m2 to override the default value")
     lighting_load_Wm2 = models.FloatField(editable=False, null=True, blank=True, validators=[MinValueValidator(0)], 
                     help_text="Look up table based on type of lighting") #lookup handled in calculations.py
-    lighting_controls = models.CharField(
-        max_length=100, 
-        choices=[], 
+    lighting_controls = models.ForeignKey(
+        LightingControlSpecs,
+        on_delete=models.PROTECT,
         help_text="Select the type of lighting control to determine hours per year"
-        ) #dropdown handled in admin.py / in form
-    on_for_hoursyear = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)], 
+    )
+    on_for_hoursyear = models.FloatField(editable=False, default=0, validators=[MinValueValidator(0)], 
+                    help_text="Infered from lighting controls")
+    on_for_hoursyear_input = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)], 
                     help_text="Hours per year the lighting is on. If provided, this overrides the default value from lighting controls.")
    
     def __str__(self):
@@ -208,7 +229,8 @@ class Datahall(models.Model):
     area_m2 = models.FloatField(validators=[MinValueValidator(0)], help_text="Required for lighting calculation")
     design_load_density_kWm2 = models.FloatField(validators=[MinValueValidator(0)], 
                                                help_text="Optional input for CRAH calculations")
-    design_IT_load_kW = models.FloatField(validators=[MinValueValidator(0)])
+    design_IT_load_kW = models.FloatField(default=0, validators=[MinValueValidator(0)],
+                                          help_text="If not provided, will be estimated based on area and load density or installed UPS capacity")
     server_dT_in_Kelvin = models.FloatField(validators=[MinValueValidator(0)], default=12, 
                                            help_text="Assumption default")
     type_air_cooling = models.CharField(max_length=100, choices=AIR_COOLING_TYPE_CHOICES,

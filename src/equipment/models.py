@@ -23,3 +23,18 @@ class LightingControlSpecs(models.Model):
     class Meta:
         verbose_name = "Lighting Control Specification"
         verbose_name_plural = "Lighting Control Specifications"
+
+class TransformerSpecs(models.Model):
+    """
+    Model to store transformer types and their associated core and load losses
+    
+    """
+    
+    transformer_type = models.CharField(max_length=100)
+    application = models.CharField(max_length=150)
+    core_losses_percent = models.FloatField(validators=[MinValueValidator(0), MaxValueValidator(1)])
+    load_losses_percent = models.FloatField(validators=[MinValueValidator(0), MaxValueValidator(1)])
+    
+    def __str__(self):
+        return self.transformer_type
+

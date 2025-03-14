@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import LightingSpecs, LightingControlSpecs
+from .models import *
 
 @admin.register(LightingSpecs)
 class LightingSpecsAdmin(admin.ModelAdmin):
@@ -12,3 +12,12 @@ class LightingControlSpecsAdmin(admin.ModelAdmin):
     list_display = ('id', 'control_type', 'hours_per_year')
     list_editable = ('control_type', 'hours_per_year',)
     search_fields = ('control_type',)
+
+
+@admin.register(TransformerSpecs)
+class TransformerSpecsAdmin(admin.ModelAdmin):
+    list_display = ('id', 'transformer_type', 'application', 'core_losses_percent', 'load_losses_percent')
+    list_editable = ('transformer_type', 'application', 'core_losses_percent', 'load_losses_percent',)
+    search_fields = ('transformer_type',)
+
+
